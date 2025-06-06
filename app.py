@@ -1,40 +1,36 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
+import os
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return jsonify(message="Hello from Heroku! v4")
+# DATABASE_URL 環境変数を使う（Herokuが自動で設定）
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///local.db")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
 
-@app.route("/api")
-def api():
-    return jsonify(status="ok", data={"message": "This is your API v4!"})
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
-@app.route("/health")
-def health():
-    return jsonify(status="healthy")
+from models import User
 
-@app.route("/api/user")
-def user_info():
-    return jsonify(
-        status="ok",
-        data={
-            "id": 1,
-            "name": "Test User",
-            "email": "test@example.com"
-        }
-    )
+@app.before_first_request
+def create_tables():
+    db.create_all()
 
-@app.route("/api/items")
-def item_list():
-    return jsonify(
-        status="ok",
-        data=[
-            {"id": 101, "name": "Item A", "price": 10.99},
-            {"id": 102, "name": "Item B", "price": 5.49},
-            {"id": 103, "name": "Item C", "price": 20.00}
-        ]
-    )
+@app.route("/api/users", methods=["GET"])
+def get_users():
+    users = User.query.all()
+    return jsonify([{"id": u.id, "name": u.name} for u in users])
+
+@app.route("/api/users", methods=["POST"])
+def add_user():
+    data = request.get_json()
+    new_user = User(name=data["name"])
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({"id": new_user.id, "name": new_user.name}), 201
 
 if __name__ == "__main__":
     app.run()
