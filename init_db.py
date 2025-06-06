@@ -1,5 +1,6 @@
-from app import db
-from models import User  # 必要なモデルを import
+from app import db, app
+from models import User
 
-db.create_all()
-print("✅ Database initialized.")
+with app.app_context():
+    db.create_all()
+    print("✅ Database initialized.")
